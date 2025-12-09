@@ -20,11 +20,11 @@ const Dashboard = () => {
   // history verisini çekiyoruz
   const { sensorData, alerts, history } = useSensor();
 
-  if (!sensorData) return <div style={{padding: 20}}>Veri Bekleniyor...</div>;
+  if (!sensorData) return <div style={{ padding: 20 }}>Veri Bekleniyor...</div>;
 
   return (
     <div style={{ padding: '20px' }}>
-      <h1>🏠 Houseguard Canlı İzleme</h1>
+      <h1 style={{ color: 'black' }}>🏠 Houseguard Canlı İzleme</h1>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginTop: '20px' }}>
         <SensorCard title="Sıcaklık" value={sensorData.temperature} unit="°C" />
@@ -33,21 +33,21 @@ const Dashboard = () => {
       </div>
 
       {/* SPRINT 3: Grafik Alanı - DÜZELTİLMİŞ VERSİYON */}
-      <div style={{ 
-        marginTop: '30px', 
-        background: 'white', 
-        padding: '20px', 
+      <div style={{
+        marginTop: '30px',
+        background: 'white',
+        padding: '20px',
         borderRadius: '10px',
         // Taşmayı önlemek için kutuya sabit yükseklik vermeyelim, içeriğe göre uzasın
-        minHeight: '400px' 
+        minHeight: '400px'
       }}>
         {/* Başlığın üst ve alt boşluğunu ayarladık */}
-        <h3 style={{color: '#333', marginTop: '0', marginBottom: '20px'}}>📊 Canlı Sıcaklık Grafiği</h3>
-        
+        <h3 style={{ color: '#333', marginTop: '0', marginBottom: '20px' }}>📊 Canlı Sıcaklık Grafiği</h3>
+
         {/* Grafiğin oturacağı alan */}
         <div style={{ width: '100%', height: 300 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
+            <LineChart
               data={history}
               // Grafiğin kenarlara yapışmasını engellemek için margin ekledik
               margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
@@ -56,23 +56,23 @@ const Dashboard = () => {
               <XAxis dataKey="time" />
               <YAxis />
               <Tooltip />
-              
+
               {/* Animasyonu kapattık ve noktaları kaldırdık */}
-              <Line 
-                type="monotone" 
-                dataKey="temp" 
-                stroke="#8884d8" 
+              <Line
+                type="monotone"
+                dataKey="temp"
+                stroke="#8884d8"
                 strokeWidth={3}
                 dot={false}
-                isAnimationActive={false} 
+                isAnimationActive={false}
               />
-              <Line 
-                type="monotone" 
-                dataKey="hum" 
-                stroke="#82ca9d" 
-                strokeWidth={3} 
+              <Line
+                type="monotone"
+                dataKey="hum"
+                stroke="#82ca9d"
+                strokeWidth={3}
                 dot={false}
-                isAnimationActive={false} 
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>

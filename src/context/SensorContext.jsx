@@ -7,18 +7,29 @@ const SensorContext = createContext();
 export const SensorProvider = ({ children }) => {
   const [sensorData, setSensorData] = useState(null);
   const [alerts, setAlerts] = useState([]);
+  
+  // SPRINT 3: Sadece Grafik Verisi (history) ekledik. Offline kontrolü YOK.
+  const [history, setHistory] = useState([]); 
 
   useEffect(() => {
     const interval = setInterval(() => {
       try {
         const rawData = generateFakeData();
         
-        if (rawData.temperature > 100 || rawData.temperature < -20) {
-          console.warn("Hatalı Veri Yakalandı:", rawData.temperature);
-          return;
-        }
+        if (rawData.temperature > 100) return;
 
         setSensorData(rawData);
+
+        // Grafik için veriyi kaydet (Son 20 veri)
+        setHistory(prev => {
+          const newHistory = [...prev, { 
+            time: new Date().toLocaleTimeString(), 
+            temp: rawData.temperature,
+            hum: rawData.humidity
+          }];
+          if (newHistory.length > 20) newHistory.shift(); 
+          return newHistory;
+        });
 
         if (rawData.sos_alert) {
           setAlerts(prev => [...prev, { msg: "SOS ALARM!", time: new Date().toLocaleTimeString() }]);
@@ -32,8 +43,9 @@ export const SensorProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // history verisini dışarı açıyoruz
   return (
-    <SensorContext.Provider value={{ sensorData, alerts }}>
+    <SensorContext.Provider value={{ sensorData, alerts, history }}>
       {children}
     </SensorContext.Provider>
   );

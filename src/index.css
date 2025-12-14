@@ -1,0 +1,30 @@
+/* src/index.css - Dark Mode Destekli Tasarım */
+:root {
+  /* Gündüz (Light) Renkleri */
+  --bg-color: #f1f5f9;
+  --card-bg: #ffffff;
+  --text-color: #333333;
+  --sidebar-bg: #1e293b;
+  --border-color: #ddd;
+}
+
+[data-theme='dark'] {
+  /* Gece (Dark) Renkleri */
+  --bg-color: #0f172a;
+  --card-bg: #1e293b;
+  --text-color: #f1f5f9;
+  --sidebar-bg: #020617;
+  --border-color: #334155;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s, color 0.3s; /* Yumuşak geçiş */
+}
+
+/* Linkler ve Butonlar */
+a { text-decoration: none; color: inherit; }
+button { cursor: pointer; }

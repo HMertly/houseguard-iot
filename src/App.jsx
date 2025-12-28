@@ -1,14 +1,14 @@
-// src/App.jsx (Final Sürüm)
+// src/App.jsx - (MERT'İN PROJESİYLE TAM UYUMLU FINAL VERSİYON)
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { SensorProvider, useSensor } from './context/SensorContext';
-import { Shield, Home, Settings, AlertTriangle, Sun, Moon, Download, Flame, Siren } from 'lucide-react';
+// Yeni ikonlar ekledik: Wind (Gaz), CloudFog (Duman), Activity (Hareket)
+import { Shield, Home, Settings, AlertTriangle, Sun, Moon, Download, Flame, Siren, Wind, CloudFog, Activity } from 'lucide-react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// ...SensorCard bileşeni aynı...
-const SensorCard = ({ title, value, unit, alert }) => (
+const SensorCard = ({ title, value, unit, alert, icon }) => (
   <div style={{
     border: '1px solid var(--border-color)', 
     padding: '20px', 
@@ -16,19 +16,24 @@ const SensorCard = ({ title, value, unit, alert }) => (
     backgroundColor: alert ? '#ef4444' : 'var(--card-bg)', 
     color: alert ? 'white' : 'var(--text-color)',
     boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-    transition: '0.3s'
+    transition: '0.3s',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between'
   }}>
-    <h3 style={{ marginTop: 0, opacity: 0.8, color: 'inherit' }}>{title}</h3>
-    <h2 style={{ fontSize: '2rem', margin: '10px 0', color: 'inherit' }}>{value} {unit}</h2>
+    <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+      <h3 style={{ marginTop: 0, opacity: 0.8, color: 'inherit', fontSize:'1.1rem' }}>{title}</h3>
+      {icon && <div style={{opacity:0.7}}>{icon}</div>}
+    </div>
+    <h2 style={{ fontSize: '1.8rem', margin: '10px 0', color: 'inherit' }}>{value} {unit}</h2>
   </div>
 );
 
-// ...Dashboard bileşeni aynı...
 const Dashboard = () => {
   const { sensorData, alerts, history } = useSensor();
   const [filterType, setFilterType] = useState('ALL');
 
-  if (!sensorData) return <div style={{padding: 20}}>Sistem Başlatılıyor...</div>;
+  if (!sensorData) return <div style={{padding: 20}}>Sistem Sensörlere Bağlanıyor...</div>;
 
   const filteredAlerts = alerts.filter(log => {
     if (filterType === 'ALL') return true;
@@ -38,14 +43,47 @@ const Dashboard = () => {
   return (
     <div style={{ padding: '20px' }}>
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-        <h1 style={{ color: 'var(--text-color)' }}>🏠 Canlı İzleme</h1>
-        <span style={{fontSize:'0.9rem', opacity:0.7}}>Son Güncelleme: {new Date().toLocaleTimeString()}</span>
+        <h1 style={{ color: 'var(--text-color)' }}>🏠 Houseguard İzleme Paneli</h1>
+        <span style={{fontSize:'0.9rem', opacity:0.7}}>Son Veri: {new Date().toLocaleTimeString()}</span>
       </div>
 
+      {/* SENSÖR KARTLARI (MERT'İN DONANIMINA GÖRE GÜNCELLENDİ) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginTop: '20px' }}>
-        <SensorCard title="Sıcaklık" value={sensorData.temperature} unit="°C" />
-        <SensorCard title="Nem" value={sensorData.humidity} unit="%" />
-        <SensorCard title="Kapı Durumu" value={sensorData.door_status} unit="" alert={sensorData.door_status === 'OPEN'} />
+        {/* 1. Sıcaklık */}
+        <SensorCard title="Sıcaklık" value={sensorData.temperature} unit="°C" icon={<Flame size={24}/>} alert={sensorData.temperature > 50} />
+        
+        {/* 2. Nem */}
+        <SensorCard title="Nem" value={sensorData.humidity} unit="%" icon={<Wind size={24}/>} />
+        
+        {/* 3. Kapı */}
+        <SensorCard title="Ana Kapı" value={sensorData.door_status} unit="" icon={<Shield size={24}/>} alert={sensorData.door_status === 'OPEN'} />
+
+        {/* 4. Gaz Sensörü (YENİ) */}
+        <SensorCard 
+          title="Gaz Durumu" 
+          value={sensorData.gas_detected ? "KAÇAK VAR!" : "GÜVENLİ"} 
+          unit="" 
+          icon={<Wind size={24}/>} 
+          alert={sensorData.gas_detected === 1} 
+        />
+
+        {/* 5. Duman Sensörü (YENİ) */}
+        <SensorCard 
+          title="Yangın/Duman" 
+          value={sensorData.smoke_detected ? "DUMAN!" : "TEMİZ"} 
+          unit="" 
+          icon={<CloudFog size={24}/>} 
+          alert={sensorData.smoke_detected === 1} 
+        />
+
+        {/* 6. Hareket Sensörü (YENİ) */}
+        <SensorCard 
+          title="Hareket" 
+          value={sensorData.motion_detected ? "HAREKETLİ" : "SAKİN"} 
+          unit="" 
+          icon={<Activity size={24}/>} 
+          alert={sensorData.motion_detected === 1} 
+        />
       </div>
 
       <div style={{ marginTop: '30px', background: 'var(--card-bg)', padding: '20px', borderRadius: '10px', minHeight: '400px', border: '1px solid var(--border-color)' }}>
@@ -70,12 +108,14 @@ const Dashboard = () => {
           </h3>
           <div style={{display:'flex', gap:'5px'}}>
              <button onClick={() => setFilterType('ALL')} style={{background: filterType==='ALL'?'#3b82f6':'gray', color:'white', border:'none', padding:'5px 10px', borderRadius:'5px'}}>Tümü</button>
-             <button onClick={() => setFilterType('CRITICAL')} style={{background: filterType==='CRITICAL'?'#ef4444':'gray', color:'white', border:'none', padding:'5px 10px', borderRadius:'5px'}}>Kritik</button>
+             <button onClick={() => setFilterType('FIRE')} style={{background: filterType==='FIRE'?'#ef4444':'gray', color:'white', border:'none', padding:'5px 10px', borderRadius:'5px'}}>Yangın</button>
+             <button onClick={() => setFilterType('SOS')} style={{background: filterType==='SOS'?'#f59e0b':'gray', color:'white', border:'none', padding:'5px 10px', borderRadius:'5px'}}>SOS</button>
           </div>
         </div>
         <div style={{maxHeight: '200px', overflowY: 'auto'}}>
           {filteredAlerts.length === 0 ? <p style={{ opacity: 0.6 }}>Kayıt yok.</p> : filteredAlerts.map((a, i) => (
-            <div key={i} style={{ padding: '8px', borderBottom: '1px solid var(--border-color)', color: a.type === 'CRITICAL' ? 'red' : a.type === 'SOS' ? 'orange' : 'inherit' }}>
+            <div key={i} style={{ padding: '8px', borderBottom: '1px solid var(--border-color)', 
+              color: a.type === 'FIRE' || a.type === 'DANGER' ? 'red' : a.type === 'SOS' ? 'orange' : 'inherit' }}>
               <strong>[{a.type}]</strong> {a.time} - {a.msg}
             </div>
           ))}
@@ -85,7 +125,6 @@ const Dashboard = () => {
   );
 };
 
-// SPRINT 5: Yeni Ayarlar Sayfası
 const SettingsPage = () => {
   const { thresholds, updateThresholds, exportCSV, triggerDemo } = useSensor();
   const [tempLimit, setTempLimit] = useState(thresholds.temp);
@@ -102,24 +141,17 @@ const SettingsPage = () => {
         <h3 style={{marginTop:0, color: 'var(--text-color)'}}>Alarm Sınırları</h3>
         <div style={{marginBottom: '15px'}}>
           <label style={{display:'block', marginBottom:'5px', color:'var(--text-color)'}}>Maksimum Sıcaklık (°C):</label>
-          <input 
-            type="number" 
-            value={tempLimit} 
-            onChange={(e) => setTempLimit(e.target.value)}
-            style={{padding:'10px', width:'100%', borderRadius:'5px', border:'1px solid #ccc'}} 
-          />
+          <input type="number" value={tempLimit} onChange={(e) => setTempLimit(e.target.value)}
+            style={{padding:'10px', width:'100%', borderRadius:'5px', border:'1px solid #ccc'}} />
         </div>
-        <button onClick={handleSave} style={{background: '#22c55e', color:'white', padding:'10px 20px', border:'none', borderRadius:'5px', width:'100%'}}>
-          Kaydet
-        </button>
+        <button onClick={handleSave} style={{background: '#22c55e', color:'white', padding:'10px 20px', border:'none', borderRadius:'5px', width:'100%'}}>Kaydet</button>
       </div>
 
       <div style={{ background: 'var(--card-bg)', padding: '20px', borderRadius: '10px', border: '1px solid var(--border-color)', marginTop: '20px' }}>
-        <h3 style={{marginTop:0, color: 'var(--text-color)'}}>Demo / Senaryo Modu</h3>
-        <p style={{opacity:0.7, fontSize:'0.9rem'}}>Sunum sırasında acil durumları manuel tetiklemek için kullanın.</p>
+        <h3 style={{marginTop:0, color: 'var(--text-color)'}}>Demo / Test Modu</h3>
         <div style={{display:'flex', gap:'10px'}}>
           <button onClick={() => triggerDemo('FIRE')} style={{background: '#ef4444', color:'white', padding:'15px', border:'none', borderRadius:'5px', flex:1, display:'flex', justifyContent:'center', gap:'10px'}}>
-            <Flame /> Yangın Başlat
+            <Flame /> Yangın/Duman
           </button>
           <button onClick={() => triggerDemo('SOS')} style={{background: '#f59e0b', color:'white', padding:'15px', border:'none', borderRadius:'5px', flex:1, display:'flex', justifyContent:'center', gap:'10px'}}>
             <Siren /> SOS Sinyali
@@ -148,12 +180,10 @@ const MainLayout = () => {
           <Link to="/" style={{ color: 'white', opacity: 0.8 }}> <Home size={18} /> Dashboard</Link>
           <Link to="/settings" style={{ color: 'white', opacity: 0.8 }}> <Settings size={18} /> Ayarlar</Link>
         </nav>
-        
         <button onClick={toggleTheme} style={{marginTop: '50px', background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none', padding: '10px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', borderRadius: '5px'}}>
           {theme === 'light' ? <><Moon size={16}/> Gece Modu</> : <><Sun size={16}/> Gündüz Modu</>}
         </button>
       </div>
-
       <div style={{ flex: 1, backgroundColor: 'var(--bg-color)', transition: '0.3s' }}>
         <Routes>
           <Route path="/" element={<Dashboard />} />

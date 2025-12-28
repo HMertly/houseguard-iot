@@ -1,4 +1,4 @@
-// src/context/SensorContext.jsx (DÜZELTİLMİŞ - Demo Modu Fix)
+// src/context/SensorContext.jsx - (MERT'İN KODUYLA EŞLEŞTİRİLDİ)
 import { createContext, useState, useEffect, useContext } from 'react';
 import { generateFakeData } from '../services/MockDataService';
 import { toast } from 'react-toastify';
@@ -11,13 +11,11 @@ export const SensorProvider = ({ children }) => {
   const [alerts, setAlerts] = useState([]);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   
-  // Ayarlar
   const [thresholds, setThresholds] = useState(() => {
     const saved = localStorage.getItem('thresholds');
     return saved ? JSON.parse(saved) : { temp: 50, hum: 80 };
   });
 
-  // FIX: Simülasyon Durumu (Normalde null, butona basınca 'FIRE' veya 'SOS' olur)
   const [simulationMode, setSimulationMode] = useState(null);
 
   const updateThresholds = (newSettings) => {
@@ -48,17 +46,13 @@ export const SensorProvider = ({ children }) => {
     toast.success("Rapor İndirildi!");
   };
 
-  // FIX: Demo Tetikleyici - Artık modu değiştiriyor ve 15 saniye kilitliyor
   const triggerDemo = (type) => {
-    setSimulationMode(type); // Modu aktif et
-
+    setSimulationMode(type);
     if (type === 'FIRE') {
-      toast.error("🔥 YANGIN SİMÜLASYONU BAŞLATILDI! (15 Saniye)");
+      toast.error("🔥 YANGIN VE DUMAN SİMÜLASYONU BAŞLATILDI!");
     } else if (type === 'SOS') {
-      toast.warn("🆘 SOS SİMÜLASYONU BAŞLATILDI! (15 Saniye)");
+      toast.warn("🆘 SOS SİMÜLASYONU BAŞLATILDI!");
     }
-
-    // 15 saniye sonra sistemi normale döndür
     setTimeout(() => {
       setSimulationMode(null);
       toast.info("Simülasyon bitti, sistem normale döndü.");
@@ -70,18 +64,18 @@ export const SensorProvider = ({ children }) => {
   useEffect(() => {
     const interval = setInterval(() => {
       try {
-        // 1. Rastgele veriyi al
         let rawData = generateFakeData();
         
-        // FIX: EĞER SİMÜLASYON VARSA, VERİYİ ZORLA DEĞİŞTİR
+        // --- SİMÜLASYON MANTIĞI ---
         if (simulationMode === 'FIRE') {
-          rawData.temperature = 95; // Sıcaklığı zorla 95 yap
-          rawData.humidity = 10;
+          rawData.temperature = 95; 
+          rawData.smoke_detected = 1; // Yangında duman da olur
+          rawData.gas_detected = 0;
         } else if (simulationMode === 'SOS') {
-          rawData.sos_alert = true; // SOS'i zorla aç
+          rawData.sos_alert = true;
         }
+        // --------------------------
 
-        // Validation
         if (rawData.temperature > 100) return;
 
         setSensorData(rawData);
@@ -96,26 +90,51 @@ export const SensorProvider = ({ children }) => {
           return newHistory;
         });
 
-        // Alarm Kontrolleri
+        // --- ALARM KONTROLLERİ ---
+        
+        // 1. Sıcaklık Kontrolü
         if (rawData.temperature > thresholds.temp) {
-           if (Math.random() > 0.8) { // Spam önleme
+           if (Math.random() > 0.8) {
              toast.error(`🔥 YÜKSEK SICAKLIK! (${rawData.temperature}°C)`);
              setAlerts(prev => [{ msg: `Yüksek Sıcaklık (${rawData.temperature}°C)`, type: 'CRITICAL', time: new Date().toLocaleTimeString() }, ...prev]);
              alarmSound.play().catch(()=>{});
            }
         }
 
+        // 2. Kapı Kontrolü
         if (rawData.door_status === 'OPEN') {
           alarmSound.play().catch(()=>{});
           if (Math.random() > 0.7) { 
              toast.error(`⚠️ KAPI AÇILDI!`);
-             setAlerts(prev => [{ msg: "KAPI AÇILDI!", type: 'CRITICAL', time: new Date().toLocaleTimeString() }, ...prev]);
+             setAlerts(prev => [{ msg: "KAPI AÇILDI!", type: 'SECURITY', time: new Date().toLocaleTimeString() }, ...prev]);
           }
         }
 
+        // 3. SOS Kontrolü
         if (rawData.sos_alert) {
           toast.warn("🆘 SOS SİNYALİ!");
-          setAlerts(prev => [{ msg: "SOS ALARM!", type: 'SOS', time: new Date().toLocaleTimeString() }, ...prev]);
+          setAlerts(prev => [{ msg: "SOS BUTONU!", type: 'SOS', time: new Date().toLocaleTimeString() }, ...prev]);
+        }
+
+        // 4. Gaz Kontrolü (YENİ)
+        if (rawData.gas_detected === 1) {
+          alarmSound.play().catch(()=>{});
+          toast.error("☠️ GAZ KAÇAĞI TESPİT EDİLDİ!");
+          setAlerts(prev => [{ msg: "GAZ KAÇAĞI!", type: 'DANGER', time: new Date().toLocaleTimeString() }, ...prev]);
+        }
+
+        // 5. Duman Kontrolü (YENİ)
+        if (rawData.smoke_detected === 1) {
+          alarmSound.play().catch(()=>{});
+          toast.error("☁️ DUMAN ALGILANDI (YANGIN RİSKİ)!");
+          setAlerts(prev => [{ msg: "DUMAN TESPİTİ!", type: 'FIRE', time: new Date().toLocaleTimeString() }, ...prev]);
+        }
+
+        // 6. Hareket Kontrolü (YENİ) - Sadece log düşsün, çok ses yapmasın
+        if (rawData.motion_detected === 1) {
+           if(Math.random() > 0.9) { // Çok spam yapmasın
+             setAlerts(prev => [{ msg: "Hareket Algılandı", type: 'MOTION', time: new Date().toLocaleTimeString() }, ...prev]);
+           }
         }
 
       } catch (error) {
@@ -124,7 +143,7 @@ export const SensorProvider = ({ children }) => {
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [thresholds, simulationMode]); // FIX: simulationMode değişince burası güncellensin
+  }, [thresholds, simulationMode]);
 
   return (
     <SensorContext.Provider value={{ sensorData, history, alerts, theme, toggleTheme, thresholds, updateThresholds, exportCSV, triggerDemo }}>

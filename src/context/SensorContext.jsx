@@ -1,152 +1,107 @@
-// src/context/SensorContext.jsx - (MERT'İN KODUYLA EŞLEŞTİRİLDİ)
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useReducer, useEffect, useContext, useState } from 'react';
 import { generateFakeData } from '../services/MockDataService';
 import { toast } from 'react-toastify';
 
 const SensorContext = createContext();
 
-export const SensorProvider = ({ children }) => {
-  const [sensorData, setSensorData] = useState(null);
-  const [history, setHistory] = useState([]); 
-  const [alerts, setAlerts] = useState([]);
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
-  
-  const [thresholds, setThresholds] = useState(() => {
-    const saved = localStorage.getItem('thresholds');
-    return saved ? JSON.parse(saved) : { temp: 50, hum: 80 };
-  });
+// SPRINT 2: useReducer Yapısı (Performans ve Karmaşık State Yönetimi İçin)
+const initialState = {
+  sensorData: null,
+  history: [],
+  alerts: [],
+  theme: localStorage.getItem('theme') || 'light',
+  thresholds: JSON.parse(localStorage.getItem('thresholds')) || { temp: 50, hum: 80 },
+  isOffline: false, // SPRINT 3: Heartbeat durumu
+  simulationMode: null
+};
 
-  const [simulationMode, setSimulationMode] = useState(null);
+function reducer(state, action) {
+  switch (action.type) {
+    case 'UPDATE_DATA':
+      return { 
+        ...state, 
+        sensorData: action.payload, 
+        isOffline: false, // Veri geldiği sürece online
+        history: [...state.history, { 
+          time: new Date().toLocaleTimeString(), 
+          temp: action.payload.temperature, 
+          hum: action.payload.humidity 
+        }].slice(-20) 
+      };
+    case 'SET_OFFLINE':
+      return { ...state, isOffline: true };
+    case 'ADD_ALERT':
+      return { ...state, alerts: [action.payload, ...state.alerts] };
+    case 'SET_THEME':
+      return { ...state, theme: action.payload };
+    case 'SET_THRESHOLDS':
+      return { ...state, thresholds: action.payload };
+    case 'SET_SIMULATION':
+      return { ...state, simulationMode: action.payload };
+    default:
+      return state;
+  }
+}
+
+export const SensorProvider = ({ children }) => {
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
+
+  // SPRINT 3: Heartbeat Monitor (15 Saniye Kontrolü)
+  useEffect(() => {
+    const heartbeatInterval = setInterval(() => {
+      if (Date.now() - lastUpdate > 15000) {
+        dispatch({ type: 'SET_OFFLINE' });
+      }
+    }, 5000);
+    return () => clearInterval(heartbeatInterval);
+  }, [lastUpdate]);
 
   const updateThresholds = (newSettings) => {
-    setThresholds(newSettings);
+    dispatch({ type: 'SET_THRESHOLDS', payload: newSettings });
     localStorage.setItem('thresholds', JSON.stringify(newSettings));
     toast.success("Ayarlar Kaydedildi!");
   };
 
   const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
+    const newTheme = state.theme === 'light' ? 'dark' : 'light';
+    dispatch({ type: 'SET_THEME', payload: newTheme });
     localStorage.setItem('theme', newTheme);
   };
 
   const exportCSV = () => {
-    if (alerts.length === 0) {
-      toast.info("İndirilecek kayıt yok.");
-      return;
-    }
     const headers = "Zaman,Tip,Mesaj\n";
-    const rows = alerts.map(a => `${a.time},${a.type},${a.msg}`).join("\n");
-    const blob = new Blob(["\uFEFF" + headers + rows], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    const rows = state.alerts.map(a => `${a.time},${a.type},${a.msg}`).join("\n");
+    const blob = new Blob(["\uFEFF" + headers + rows], { type: 'text/csv;charset=utf-8;' }); // SPRINT 5: BOM Karakteri
     const link = document.createElement("a");
-    link.href = url;
-    link.download = `guvenlik_loglari_${new Date().toLocaleDateString()}.csv`;
+    link.href = URL.createObjectURL(blob);
+    link.download = `houseguard_logs.csv`;
     link.click();
-    toast.success("Rapor İndirildi!");
   };
 
   const triggerDemo = (type) => {
-    setSimulationMode(type);
-    if (type === 'FIRE') {
-      toast.error("🔥 YANGIN VE DUMAN SİMÜLASYONU BAŞLATILDI!");
-    } else if (type === 'SOS') {
-      toast.warn("🆘 SOS SİMÜLASYONU BAŞLATILDI!");
-    }
-    setTimeout(() => {
-      setSimulationMode(null);
-      toast.info("Simülasyon bitti, sistem normale döndü.");
-    }, 15000);
+    dispatch({ type: 'SET_SIMULATION', payload: type });
+    setTimeout(() => dispatch({ type: 'SET_SIMULATION', payload: null }), 15000);
   };
-
-  const alarmSound = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
 
   useEffect(() => {
     const interval = setInterval(() => {
-      try {
-        let rawData = generateFakeData();
-        
-        // --- SİMÜLASYON MANTIĞI ---
-        if (simulationMode === 'FIRE') {
-          rawData.temperature = 95; 
-          rawData.smoke_detected = 1; // Yangında duman da olur
-          rawData.gas_detected = 0;
-        } else if (simulationMode === 'SOS') {
-          rawData.sos_alert = true;
-        }
-        // --------------------------
+      let rawData = generateFakeData();
+      if (state.simulationMode === 'FIRE') rawData.temperature = 95;
+      
+      dispatch({ type: 'UPDATE_DATA', payload: rawData });
+      setLastUpdate(Date.now()); // Zamanı güncelle
 
-        if (rawData.temperature > 100) return;
-
-        setSensorData(rawData);
-
-        setHistory(prev => {
-          const newHistory = [...prev, { 
-            time: new Date().toLocaleTimeString(), 
-            temp: rawData.temperature,
-            hum: rawData.humidity
-          }];
-          if (newHistory.length > 20) newHistory.shift(); 
-          return newHistory;
-        });
-
-        // --- ALARM KONTROLLERİ ---
-        
-        // 1. Sıcaklık Kontrolü
-        if (rawData.temperature > thresholds.temp) {
-           if (Math.random() > 0.8) {
-             toast.error(`🔥 YÜKSEK SICAKLIK! (${rawData.temperature}°C)`);
-             setAlerts(prev => [{ msg: `Yüksek Sıcaklık (${rawData.temperature}°C)`, type: 'CRITICAL', time: new Date().toLocaleTimeString() }, ...prev]);
-             alarmSound.play().catch(()=>{});
-           }
-        }
-
-        // 2. Kapı Kontrolü
-        if (rawData.door_status === 'OPEN') {
-          alarmSound.play().catch(()=>{});
-          if (Math.random() > 0.7) { 
-             toast.error(`⚠️ KAPI AÇILDI!`);
-             setAlerts(prev => [{ msg: "KAPI AÇILDI!", type: 'SECURITY', time: new Date().toLocaleTimeString() }, ...prev]);
-          }
-        }
-
-        // 3. SOS Kontrolü
-        if (rawData.sos_alert) {
-          toast.warn("🆘 SOS SİNYALİ!");
-          setAlerts(prev => [{ msg: "SOS BUTONU!", type: 'SOS', time: new Date().toLocaleTimeString() }, ...prev]);
-        }
-
-        // 4. Gaz Kontrolü (YENİ)
-        if (rawData.gas_detected === 1) {
-          alarmSound.play().catch(()=>{});
-          toast.error("☠️ GAZ KAÇAĞI TESPİT EDİLDİ!");
-          setAlerts(prev => [{ msg: "GAZ KAÇAĞI!", type: 'DANGER', time: new Date().toLocaleTimeString() }, ...prev]);
-        }
-
-        // 5. Duman Kontrolü (YENİ)
-        if (rawData.smoke_detected === 1) {
-          alarmSound.play().catch(()=>{});
-          toast.error("☁️ DUMAN ALGILANDI (YANGIN RİSKİ)!");
-          setAlerts(prev => [{ msg: "DUMAN TESPİTİ!", type: 'FIRE', time: new Date().toLocaleTimeString() }, ...prev]);
-        }
-
-        // 6. Hareket Kontrolü (YENİ) - Sadece log düşsün, çok ses yapmasın
-        if (rawData.motion_detected === 1) {
-           if(Math.random() > 0.9) { // Çok spam yapmasın
-             setAlerts(prev => [{ msg: "Hareket Algılandı", type: 'MOTION', time: new Date().toLocaleTimeString() }, ...prev]);
-           }
-        }
-
-      } catch (error) {
-        console.error("Hata:", error);
+      // Alarmlar
+      if (rawData.temperature > state.thresholds.temp) {
+        dispatch({ type: 'ADD_ALERT', payload: { msg: `Yüksek Isı!`, type: 'FIRE', time: new Date().toLocaleTimeString() } });
       }
     }, 2000);
-
     return () => clearInterval(interval);
-  }, [thresholds, simulationMode]);
+  }, [state.thresholds, state.simulationMode]);
 
   return (
-    <SensorContext.Provider value={{ sensorData, history, alerts, theme, toggleTheme, thresholds, updateThresholds, exportCSV, triggerDemo }}>
+    <SensorContext.Provider value={{ ...state, toggleTheme, updateThresholds, exportCSV, triggerDemo }}>
       {children}
     </SensorContext.Provider>
   );
